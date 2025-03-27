@@ -1,0 +1,25 @@
+name: Build CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up build environment
+        run: |
+          mkdir -p include src bin lib
+
+      - name: Build project using Makefile
+        run: make
+
+      - name: List output files
+        run: ls -R bin lib
