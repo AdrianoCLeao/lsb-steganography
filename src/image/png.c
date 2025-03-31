@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "png.h"
+#include "../include/image/png.h"
 
 const uint8_t PNG_SIGNATURE[8] = {137, 80, 78, 71, 13, 10, 26, 10};
 
@@ -36,11 +36,14 @@ StatusCode load_png_image(const char *filepath, PNGImage *image) {
 
     uint8_t *idat_data = NULL;
     size_t idat_size = 0;
-
     int width = 0, height = 0, bit_depth = 0, color_type = 0;
+
+    printf("Reading PNG chunks:\n");
 
     while (!feof(fp)) {
         uint32_t length = read_uint32_be(fp);
+        if (feof(fp)) break;
+
         char type[5] = {0};
         fread(type, 1, 4, fp);
 
@@ -48,15 +51,17 @@ StatusCode load_png_image(const char *filepath, PNGImage *image) {
         fread(data, 1, length, fp);
         fseek(fp, 4, SEEK_CUR); 
 
+        printf("  Chunk: %s | Length: %u bytes\n", type, length);
+
         if (strcmp(type, "IHDR") == 0) {
-            width = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
-            height = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
-            bit_depth = data[8];
+            width      = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+            height     = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+            bit_depth  = data[8];
             color_type = data[9];
 
             if (bit_depth != 8 || (color_type != 2 && color_type != 6)) {
-                fclose(fp);
                 free(data);
+                fclose(fp);
                 return STATUS_INVALID_FORMAT;
             }
         } else if (strcmp(type, "IDAT") == 0) {
@@ -73,9 +78,23 @@ StatusCode load_png_image(const char *filepath, PNGImage *image) {
 
     fclose(fp);
 
-    printf("PNG loaded: %dx%d | IDAT size: %zu bytes | Color type: %d\n", width, height, idat_size, color_type);
+    if (idat_size < 2) {
+        free(idat_data);
+        return STATUS_INVALID_FORMAT;
+    }
 
-    free(idat_data); 
+    uint8_t cmf = idat_data[0];
+    uint8_t flg = idat_data[1];
+    int compression_method = cmf & 0x0F;
+
+    if (compression_method != 8) {
+        free(idat_data);
+        return STATUS_INVALID_FORMAT;
+    }
+
+    printf("\nPNG loaded: %dx%d | IDAT size: %zu bytes | Color type: %d\n", width, height, idat_size, color_type);
+
+    free(idat_data);
     return STATUS_OK;
 }
 
