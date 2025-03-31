@@ -5,6 +5,28 @@
 #include "../include/image/image.h"
 #include "../include/common/utils.h"
 
+char *read_text_file(const char *filepath) {
+    FILE *file = fopen(filepath, "rb");
+    if (!file) return NULL;
+
+    fseek(file, 0, SEEK_END);
+    long size = ftell(file);
+    rewind(file);
+
+    char *buffer = malloc(size + 1);
+    if (!buffer) {
+        fclose(file);
+        return NULL;
+    }
+
+    fread(buffer, 1, size, file);
+    buffer[size] = '\0'; 
+
+    fclose(file);
+    return buffer;
+}
+
+
 int main() {
     RGBImage image;
     RGBImage modified;
@@ -12,7 +34,12 @@ int main() {
 
     const char *input_image = "assets/test.bmp";
     const char *output_image = "assets/output_test.bmp";
-    const char *message = "Hello, world!";
+    
+    char *message = read_text_file("assets/messages/message.txt");
+    if (!message) {
+        fprintf(stderr, "Failed to read message from file.\n");
+        return 1;
+    }
 
     code = load_bmp_image(input_image, &image);
     if (code != STATUS_OK) {
@@ -59,6 +86,8 @@ int main() {
         free(bit_array);
         return 1;
     }
+
+    free(message);
 
     char extracted[256];
     code = extract_message(&modified, (uint8_t *)extracted, sizeof(extracted));
