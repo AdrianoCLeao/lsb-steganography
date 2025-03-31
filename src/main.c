@@ -10,7 +10,7 @@ int main() {
     PNGImage image;
     StatusCode code;
 
-    const char *input_image = "assets/test.png";  
+    const char *input_image = "assets/teste.png";  
 
     code = load_png_image(input_image, &image);
     if (code != STATUS_OK) {
