@@ -17,6 +17,64 @@ int validate_png_signature(FILE *fp) {
     return memcmp(sig, PNG_SIGNATURE, 8) == 0;
 }
 
+StatusCode inflate_uncompressed_blocks(const uint8_t *input, size_t input_len, uint8_t **output, size_t *output_len) {
+    if (!input || !output || !output_len) return STATUS_NULL_POINTER;
+    if (input_len < 6) return STATUS_INVALID_FORMAT;
+
+    size_t pos = 2;
+    size_t capacity = 1024;
+    size_t out_pos = 0;
+
+    uint8_t *out = malloc(capacity);
+    if (!out) return STATUS_OUT_OF_MEMORY;
+
+    int bfinal = 0;
+
+    while (!bfinal && pos + 5 <= input_len) {
+        uint8_t header = input[pos++];
+        bfinal = header & 0x01;
+        uint8_t btype = (header >> 1) & 0x03;
+
+        if (btype != 0) {
+            free(out);
+            return STATUS_NOT_IMPLEMENTED;
+        }
+
+        if (pos + 4 > input_len) {
+            free(out);
+            return STATUS_INVALID_FORMAT;
+        }
+
+        uint16_t len  = input[pos] | (input[pos + 1] << 8);
+        uint16_t nlen = input[pos + 2] | (input[pos + 3] << 8);
+        pos += 4;
+
+        if ((len ^ 0xFFFF) != nlen) {
+            free(out);
+            return STATUS_INVALID_FORMAT;
+        }
+
+        if (pos + len > input_len) {
+            free(out);
+            return STATUS_INVALID_FORMAT;
+        }
+
+        if (out_pos + len > capacity) {
+            capacity = (out_pos + len) * 2;
+            out = realloc(out, capacity);
+            if (!out) return STATUS_OUT_OF_MEMORY;
+        }
+
+        memcpy(out + out_pos, input + pos, len);
+        out_pos += len;
+        pos += len;
+    }
+
+    *output = out;
+    *output_len = out_pos;
+    return STATUS_OK;
+}
+
 StatusCode parse_png_chunks(
     const char *filepath,
     int *width,
@@ -113,7 +171,22 @@ StatusCode load_png_image(const char *filepath, PNGImage *image) {
     printf("  Color type: %d\n", color_type);
     printf("  IDAT size: %zu bytes\n", idat_size);
 
-    free(idat_data);
+    uint8_t *decompressed = NULL;
+    size_t decompressed_len = 0;
+
+    code = inflate_uncompressed_blocks(idat_data, idat_size, &decompressed, &decompressed_len);
+    free(idat_data); 
+    if (code != STATUS_OK) return code;
+
+    printf("  Decompressed size: %zu bytes\n", decompressed_len);
+
+    image->width = width;
+    image->height = height;
+    image->red = NULL;
+    image->green = NULL;
+    image->blue = NULL;
+
+    free(decompressed);
     return STATUS_OK;
 }
 

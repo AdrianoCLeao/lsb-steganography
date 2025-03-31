@@ -10,22 +10,19 @@ void print_error(StatusCode code) {
             printf("Erro desconhecido.\n");
             break;
         case STATUS_FILE_NOT_FOUND:
-            printf("Arquivo não encontrado.\n");
+            printf("Arquivo nao encontrado.\n");
             break;
         case STATUS_INVALID_FORMAT:
-            printf("Formato de arquivo inválido.\n");
+            printf("Formato de arquivo invalido.\n");
             break;
         case STATUS_OUT_OF_MEMORY:
-            printf("Memória insuficiente.\n");
+            printf("Memoria insuficiente.\n");
             break;
         case STATUS_INVALID_ARGUMENT:
-            printf("Argumento inválido.\n");
+            printf("Argumento invalido.\n");
             break;
         case STATUS_IO_ERROR:
-            printf("Erro de entrada/saída.\n");
-            break;
-        case STATUS_IMAGE_TOO_SMALL:
-            printf("Imagem muito pequena para esconder a mensagem.\n");
+            printf("Erro de entrada/saida.\n");
             break;
         case STATUS_MESSAGE_TOO_LARGE:
             printf("Mensagem muito grande para ser escondida na imagem.\n");
@@ -33,7 +30,10 @@ void print_error(StatusCode code) {
         case STATUS_NULL_POINTER:
             printf("Ponteiro nulo passado como argumento.\n");
             break;
+        case STATUS_NOT_IMPLEMENTED:
+            printf("Esta funcionalidade ainda nao foi implementada.\n");
+            break;
         default:
-            printf("Código de erro desconhecido: %d\n", code);
+            printf("Codigo de erro desconhecido: %d\n", code);
     }
 }
