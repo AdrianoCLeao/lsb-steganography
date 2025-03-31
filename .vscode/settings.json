@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "common.h": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "image.h": "c"
     }
 }
