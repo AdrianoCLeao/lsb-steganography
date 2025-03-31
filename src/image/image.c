@@ -162,15 +162,19 @@ StatusCode embed_message(RGBImage *image, const uint8_t *message, size_t len) {
     return STATUS_OK;
 }
 
-StatusCode extract_message(RGBImage *image, uint8_t *buffer, size_t max_len) {
-    if (!image || !buffer) return STATUS_NULL_POINTER;
+StatusCode extract_message(RGBImage *image, uint8_t **out_buffer, size_t *out_len) {
+    if (!image || !out_buffer || !out_len) return STATUS_NULL_POINTER;
+
+    size_t capacity = (image->width * image->height * 3) / 8;
+    uint8_t *buffer = malloc(capacity);
+    if (!buffer) return STATUS_OUT_OF_MEMORY;
 
     size_t bit_index = 0;
     size_t byte_index = 0;
     uint8_t current_byte = 0;
 
-    for (int y = 0; y < image->height && byte_index < max_len; y++) {
-        for (int x = 0; x < image->width && byte_index < max_len; x++) {
+    for (int y = 0; y < image->height && byte_index < capacity; y++) {
+        for (int x = 0; x < image->width && byte_index < capacity; x++) {
             int bit;
             if (bit_index % 3 == 0)
                 bit = get_bit(image->red[y][x], 0);
@@ -183,7 +187,11 @@ StatusCode extract_message(RGBImage *image, uint8_t *buffer, size_t max_len) {
 
             if (bit_index % 8 == 7) {
                 buffer[byte_index++] = current_byte;
-                if (current_byte == '\0') return STATUS_OK; 
+                if (current_byte == '\0') {
+                    *out_buffer = buffer;
+                    *out_len = byte_index;
+                    return STATUS_OK;
+                }
                 current_byte = 0;
             }
 
@@ -191,6 +199,9 @@ StatusCode extract_message(RGBImage *image, uint8_t *buffer, size_t max_len) {
         }
     }
 
+    buffer[byte_index] = '\0';
+    *out_buffer = buffer;
+    *out_len = byte_index;
     return STATUS_OK;
 }
 

@@ -24,7 +24,7 @@ StatusCode save_bmp_image(const char *filepath, const RGBImage *image);
 uint8_t set_bit(uint8_t value, int bit_position, uint8_t bit);
 
 StatusCode embed_message(RGBImage *image, const uint8_t *message, size_t len);
-StatusCode extract_message(RGBImage *image, uint8_t *buffer, size_t max_len);
+StatusCode extract_message(RGBImage *image, uint8_t **out_buffer, size_t *out_len);
 
 StatusCode string_to_bits(const char *str, uint8_t *bit_array, size_t max_bits, size_t *out_bits);
 StatusCode bits_to_string(const uint8_t *bit_array, size_t bit_len, char *out_str, size_t max_len);

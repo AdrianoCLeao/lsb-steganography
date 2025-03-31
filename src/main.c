@@ -89,12 +89,15 @@ int main() {
 
     free(message);
 
-    char extracted[256];
-    code = extract_message(&modified, (uint8_t *)extracted, sizeof(extracted));
+    uint8_t *extracted = NULL;
+    size_t extracted_len = 0;
+
+    code = extract_message(&modified, &extracted, &extracted_len);
     if (code != STATUS_OK) {
         print_error(code);
     } else {
-        printf("Mensagem Extraida: '%s'\n", extracted);
+        printf("Mensagem Extraída (%zu bytes):\n%s\n", extracted_len, extracted);
+        free(extracted);
     }
 
     free_rgb_image(&image);
