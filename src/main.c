@@ -1,48 +1,22 @@
 #include <stdio.h>
 #include <stdbool.h>
-#include "../include/string/string.h"
+#include "../include/image/image.h"
 #include "../include/common/utils.h"
 
 int main() {
-    char buffer[50];
-
-    StatusCode code = safe_strcpy(buffer, "Hello", sizeof(buffer));
+    RGBImage img;
+    StatusCode code = load_bmp_image("assets/test.bmp", &img);
     if (code != STATUS_OK) {
         print_error(code);
         return 1;
     }
 
-    code = safe_strcat(buffer, ", world!", sizeof(buffer));
-    if (code != STATUS_OK) {
-        print_error(code);
-        return 1;
-    }
+    printf("Image loaded: %dx%d\n", img.width, img.height);
 
-    printf("After strcat: '%s'\n", buffer);
+    print_pixel(&img, 0, 0); 
+    printf("\nLSB da matriz RED (parcial):\n");
+    print_lsb_matrix(img.red, img.width, img.height);
 
-    bool result = false;
-    code = starts_with(buffer, "Hello", &result);
-    if (code == STATUS_OK) {
-        printf("Starts with 'Hello': %s\n", result ? "true" : "false");
-    } else {
-        print_error(code);
-    }
-
-    code = ends_with(buffer, "world!", &result);
-    if (code == STATUS_OK) {
-        printf("Ends with 'world!': %s\n", result ? "true" : "false");
-    } else {
-        print_error(code);
-    }
-
-    char to_trim[] = "   trimmed text   ";
-    printf("Before trim: '%s'\n", to_trim);
-    code = trim(to_trim);
-    if (code == STATUS_OK) {
-        printf("After trim: '%s'\n", to_trim);
-    } else {
-        print_error(code);
-    }
-
+    free_rgb_image(&img);
     return 0;
 }
