@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <string.h>
 
 #include "../../include/bitstream/bitstream.h"
 
@@ -108,5 +109,86 @@ StatusCode inflate_fixed_huffman(BitStream *bs, uint8_t **out, size_t *out_len) 
 
     *out = buffer;
     *out_len = size;
+    return STATUS_OK;
+}
+
+StatusCode inflate_deflate_blocks(const uint8_t *input, size_t input_len, uint8_t **output, size_t *output_len) {
+    if (!input || !output || !output_len) return STATUS_NULL_POINTER;
+
+    BitStream bs;
+    bitstream_init(&bs, input, input_len);
+
+    bitstream_read_bits(&bs, 8); 
+    bitstream_read_bits(&bs, 8); 
+
+    size_t capacity = 8192;
+    size_t size = 0;
+    uint8_t *buffer = malloc(capacity);
+    if (!buffer) return STATUS_OUT_OF_MEMORY;
+
+    int done = 0;
+
+    while (!done && !bitstream_eof(&bs)) {
+        uint8_t bfinal = bitstream_read_bits(&bs, 1);
+        uint8_t btype  = bitstream_read_bits(&bs, 2);
+
+        if (btype == 0) {
+            bitstream_align_to_byte(&bs);
+
+            if (bs.bit_pos + 32 > bs.bit_len) {
+                free(buffer);
+                return STATUS_INVALID_FORMAT;
+            }
+
+            uint16_t len  = bitstream_read_bits(&bs, 16);
+            uint16_t nlen = bitstream_read_bits(&bs, 16);
+            if ((len ^ 0xFFFF) != nlen) {
+                free(buffer);
+                return STATUS_INVALID_FORMAT;
+            }
+
+            if (size + len > capacity) {
+                capacity = (size + len) * 2;
+                buffer = realloc(buffer, capacity);
+                if (!buffer) return STATUS_OUT_OF_MEMORY;
+            }
+
+            for (int i = 0; i < len; i++) {
+                buffer[size++] = bitstream_read_bits(&bs, 8);
+            }
+        }
+        else if (btype == 1) {
+            uint8_t *block_out = NULL;
+            size_t block_len = 0;
+            StatusCode code = inflate_fixed_huffman(&bs, &block_out, &block_len);
+            if (code != STATUS_OK) {
+                free(buffer);
+                return code;
+            }
+
+            if (size + block_len > capacity) {
+                capacity = (size + block_len) * 2;
+                buffer = realloc(buffer, capacity);
+                if (!buffer) return STATUS_OUT_OF_MEMORY;
+            }
+
+            memcpy(buffer + size, block_out, block_len);
+            size += block_len;
+            free(block_out);
+        }
+        else if (btype == 2) {
+            free(buffer);
+            return STATUS_NOT_IMPLEMENTED; 
+        }
+        else {
+            free(buffer);
+            return STATUS_INVALID_FORMAT;
+        }
+
+        if (bfinal) done = 1;
+    }
+
+    *output = buffer;
+    *output_len = size;
     return STATUS_OK;
 }

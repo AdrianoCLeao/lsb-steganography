@@ -37,5 +37,6 @@ void bitstream_align_to_byte(BitStream *bs);
 int bitstream_eof(BitStream *bs);
 
 StatusCode inflate_fixed_huffman(BitStream *bs, uint8_t **out, size_t *out_len);
+StatusCode inflate_deflate_blocks(const uint8_t *input, size_t input_len, uint8_t **output, size_t *output_len);
 
 #endif
