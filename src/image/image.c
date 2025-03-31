@@ -122,7 +122,7 @@ uint8_t get_bit(uint8_t value, int bit_position) {
 void print_lsb_matrix(uint8_t **channel, int width, int height) {
     for (int y = 0; y < height && y < 10; y++) {
         for (int x = 0; x < width && x < 20; x++) {
-            printf("%d", get_bit(channel[y][x], 0));
+            printf("%d ", get_bit(channel[y][x], 0));
         }
         printf("\n");
     }

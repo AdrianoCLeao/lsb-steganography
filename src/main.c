@@ -5,7 +5,7 @@
 
 int main() {
     RGBImage img;
-    StatusCode code = load_bmp_image("lena.bmp", &img);
+    StatusCode code = load_bmp_image("assets/test.bmp", &img);
     if (code != STATUS_OK) {
         print_error(code);
         return 1;
