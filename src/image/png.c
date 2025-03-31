@@ -180,11 +180,51 @@ StatusCode load_png_image(const char *filepath, PNGImage *image) {
 
     printf("  Decompressed size: %zu bytes\n", decompressed_len);
 
+    size_t bytes_per_pixel = 3;
+    size_t stride = width * bytes_per_pixel + 1; 
+
+    if (decompressed_len != stride * height) {
+        free(decompressed);
+        return STATUS_INVALID_FORMAT;
+    }
+
     image->width = width;
     image->height = height;
-    image->red = NULL;
-    image->green = NULL;
-    image->blue = NULL;
+
+    image->red = malloc(sizeof(uint8_t *) * height);
+    image->green = malloc(sizeof(uint8_t *) * height);
+    image->blue = malloc(sizeof(uint8_t *) * height);
+    if (!image->red || !image->green || !image->blue) {
+        free(decompressed);
+        return STATUS_OUT_OF_MEMORY;
+    }
+
+    for (int y = 0; y < height; y++) {
+        image->red[y]   = malloc(sizeof(uint8_t) * width);
+        image->green[y] = malloc(sizeof(uint8_t) * width);
+        image->blue[y]  = malloc(sizeof(uint8_t) * width);
+        if (!image->red[y] || !image->green[y] || !image->blue[y]) {
+            free(decompressed);
+            return STATUS_OUT_OF_MEMORY;
+        }
+    }
+
+    for (int y = 0; y < height; y++) {
+        size_t row_start = y * stride;
+        uint8_t filter_type = decompressed[row_start];
+
+        if (filter_type != 0) {
+            free(decompressed);
+            return STATUS_NOT_IMPLEMENTED;
+        }
+
+        for (int x = 0; x < width; x++) {
+            size_t pixel_offset = row_start + 1 + x * 3;
+            image->red[y][x]   = decompressed[pixel_offset + 0];
+            image->green[y][x] = decompressed[pixel_offset + 1];
+            image->blue[y][x]  = decompressed[pixel_offset + 2];
+        }
+    }
 
     free(decompressed);
     return STATUS_OK;
