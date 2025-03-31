@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "../include/image/png.h"
+#include "../include/bitstream/bitstream.h"
 
 const uint8_t PNG_SIGNATURE[8] = {137, 80, 78, 71, 13, 10, 26, 10};
 
@@ -174,7 +175,7 @@ StatusCode load_png_image(const char *filepath, PNGImage *image) {
     uint8_t *decompressed = NULL;
     size_t decompressed_len = 0;
 
-    code = inflate_uncompressed_blocks(idat_data, idat_size, &decompressed, &decompressed_len);
+    code = inflate_deflate_blocks(idat_data, idat_size, &decompressed, &decompressed_len);
     free(idat_data); 
     if (code != STATUS_OK) return code;
 
@@ -213,9 +214,19 @@ StatusCode load_png_image(const char *filepath, PNGImage *image) {
         size_t row_start = y * stride;
         uint8_t filter_type = decompressed[row_start];
 
-        if (filter_type != 0) {
-            free(decompressed);
-            return STATUS_NOT_IMPLEMENTED;
+        switch (filter_type) {
+            case 0: break; 
+            case 1: 
+            case 2: 
+            case 3: 
+            case 4:
+                fprintf(stderr, "PNG filter type %d not implemented.\n", filter_type);
+                free(decompressed);
+                return STATUS_NOT_IMPLEMENTED;
+            default:
+                fprintf(stderr, "Invalid filter type: %d\n", filter_type);
+                free(decompressed);
+                return STATUS_INVALID_FORMAT;
         }
 
         for (int x = 0; x < width; x++) {
