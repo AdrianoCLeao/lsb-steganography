@@ -1,1 +1,1 @@
-# Last Significant Bit Steganography
+# Least Significant Bit Steganography
