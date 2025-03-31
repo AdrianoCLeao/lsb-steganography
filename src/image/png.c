@@ -5,12 +5,6 @@
 
 const uint8_t PNG_SIGNATURE[8] = {137, 80, 78, 71, 13, 10, 26, 10};
 
-typedef struct {
-    uint32_t length;
-    char type[5];
-    uint8_t *data;
-} PNGChunk;
-
 uint32_t read_uint32_be(FILE *fp) {
     uint8_t bytes[4];
     fread(bytes, 1, 4, fp);
@@ -23,9 +17,15 @@ int validate_png_signature(FILE *fp) {
     return memcmp(sig, PNG_SIGNATURE, 8) == 0;
 }
 
-StatusCode load_png_image(const char *filepath, PNGImage *image) {
-    if (!filepath || !image) return STATUS_NULL_POINTER;
-
+StatusCode parse_png_chunks(
+    const char *filepath,
+    int *width,
+    int *height,
+    int *bit_depth,
+    int *color_type,
+    uint8_t **out_idat_data,
+    size_t *out_idat_size
+) {
     FILE *fp = fopen(filepath, "rb");
     if (!fp) return STATUS_FILE_NOT_FOUND;
 
@@ -36,7 +36,6 @@ StatusCode load_png_image(const char *filepath, PNGImage *image) {
 
     uint8_t *idat_data = NULL;
     size_t idat_size = 0;
-    int width = 0, height = 0, bit_depth = 0, color_type = 0;
 
     printf("Reading PNG chunks:\n");
 
@@ -49,17 +48,17 @@ StatusCode load_png_image(const char *filepath, PNGImage *image) {
 
         uint8_t *data = malloc(length);
         fread(data, 1, length, fp);
-        fseek(fp, 4, SEEK_CUR); 
+        fseek(fp, 4, SEEK_CUR);
 
         printf("  Chunk: %s | Length: %u bytes\n", type, length);
 
         if (strcmp(type, "IHDR") == 0) {
-            width      = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
-            height     = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
-            bit_depth  = data[8];
-            color_type = data[9];
+            *width      = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
+            *height     = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7];
+            *bit_depth  = data[8];
+            *color_type = data[9];
 
-            if (bit_depth != 8 || (color_type != 2 && color_type != 6)) {
+            if (*bit_depth != 8 || (*color_type != 2 && *color_type != 6)) {
                 free(data);
                 fclose(fp);
                 return STATUS_INVALID_FORMAT;
@@ -83,16 +82,36 @@ StatusCode load_png_image(const char *filepath, PNGImage *image) {
         return STATUS_INVALID_FORMAT;
     }
 
-    uint8_t cmf = idat_data[0];
-    uint8_t flg = idat_data[1];
-    int compression_method = cmf & 0x0F;
+    *out_idat_data = idat_data;
+    *out_idat_size = idat_size;
 
-    if (compression_method != 8) {
-        free(idat_data);
-        return STATUS_INVALID_FORMAT;
-    }
+    return STATUS_OK;
+}
 
-    printf("\nPNG loaded: %dx%d | IDAT size: %zu bytes | Color type: %d\n", width, height, idat_size, color_type);
+StatusCode load_png_image(const char *filepath, PNGImage *image) {
+    if (!filepath || !image) return STATUS_NULL_POINTER;
+
+    int width, height, bit_depth, color_type;
+    uint8_t *idat_data = NULL;
+    size_t idat_size = 0;
+
+    StatusCode code = parse_png_chunks(
+        filepath,
+        &width,
+        &height,
+        &bit_depth,
+        &color_type,
+        &idat_data,
+        &idat_size
+    );
+    if (code != STATUS_OK) return code;
+
+    printf("\nPNG metadata:\n");
+    printf("  Width: %d\n", width);
+    printf("  Height: %d\n", height);
+    printf("  Bit depth: %d\n", bit_depth);
+    printf("  Color type: %d\n", color_type);
+    printf("  IDAT size: %zu bytes\n", idat_size);
 
     free(idat_data);
     return STATUS_OK;
