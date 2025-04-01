@@ -2,7 +2,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "../../include/bitstream/huffman.h"
+#include "../../include/decompression/huffman.h"
 
 static HuffmanNode* create_node() {
     HuffmanNode *node = malloc(sizeof(HuffmanNode));
