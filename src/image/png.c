@@ -3,6 +3,7 @@
 #include <string.h>
 #include "../include/image/png.h"
 #include "../include/bitstream/bitstream.h"
+#include "../include/bitstream/huffman.h"
 
 const uint8_t PNG_SIGNATURE[8] = {137, 80, 78, 71, 13, 10, 26, 10};
 
