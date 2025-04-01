@@ -54,6 +54,17 @@ int main() {
 
     printf("Mensagem embutida com sucesso na imagem!\n");
 
+    char *extracted = NULL;
+    code = png_extract_message(&image, &extracted);
+    if (code != STATUS_OK) {
+        print_error(code);
+        free_png_image(&image);
+        return 1;
+    }
+
+    printf("Mensagem extraída:\n%s\n", extracted);
+    free(extracted);
+
     free_png_image(&image);
     return 0;
 }
