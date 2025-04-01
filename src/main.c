@@ -11,6 +11,7 @@ int main() {
     StatusCode code;
 
     const char *input_image = "assets/test.png";
+    const char *output_image = "assets/test-output.png";
     const char *message_path = "assets/messages/message.txt";
 
     code = load_png_image(input_image, &image);
@@ -53,6 +54,15 @@ int main() {
     }
 
     printf("Mensagem embutida com sucesso na imagem!\n");
+
+    code = save_png_image(output_image, &image);
+    if (code != STATUS_OK) {
+        print_error(code);
+        free_png_image(&image);
+        return 1;
+    }
+
+    printf("Imagem salva com sucesso em '%s'.\n", output_image);
 
     char *extracted = NULL;
     code = png_extract_message(&image, &extracted);

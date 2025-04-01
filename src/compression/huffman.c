@@ -63,3 +63,43 @@ StatusCode compress_huffman_block(const uint8_t *input, size_t input_len, BitWri
     free_huffman_tree(&tree);
     return STATUS_OK;
 }
+
+StatusCode compress_huffman_fixed(const uint8_t *input, size_t input_len, BitWriter *bw) {
+    if (!input || !bw) return STATUS_NULL_POINTER;
+
+    HuffmanCode codes[288];
+    for (int i = 0; i <= 143; i++) {
+        codes[i].code = 0x30 + i; 
+        codes[i].length = 8;
+    }
+    for (int i = 144; i <= 255; i++) {
+        codes[i].code = 0x190 + (i - 144); 
+        codes[i].length = 9;
+    }
+    for (int i = 256; i <= 279; i++) {
+        codes[i].code = i - 256; 
+        codes[i].length = 7;
+    }
+    for (int i = 280; i <= 287; i++) {
+        codes[i].code = 0xC0 + (i - 280); 
+        codes[i].length = 8;
+    }
+
+    HuffmanCode dist_codes[32];
+    for (int i = 0; i < 32; i++) {
+        dist_codes[i].code = i;
+        dist_codes[i].length = 5;
+    }
+
+    bitwriter_write_bits(bw, 1, 1); 
+    bitwriter_write_bits(bw, 1, 2); 
+
+    for (size_t i = 0; i < input_len; i++) {
+        int sym = input[i];
+        bitwriter_write_bits(bw, codes[sym].code, codes[sym].length);
+    }
+
+    bitwriter_write_bits(bw, codes[256].code, codes[256].length);
+
+    return STATUS_OK;
+}

@@ -17,5 +17,6 @@ void free_png_image(PNGImage *image);
 
 StatusCode png_embed_message(PNGImage *image, const uint8_t *msg, size_t msg_len);
 StatusCode png_extract_message(PNGImage *image, char **message_out);
+StatusCode save_png_image(const char *path, PNGImage *image);
 
 #endif 

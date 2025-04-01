@@ -1,9 +1,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
 #include "../include/image/png.h"
 #include "../include/bitstream/bitstream.h"
+#include "../include/bitstream/bitwriter.h"
 #include "../include/decompression/huffman.h"
+#include "../include/compression/huffman.h"
+#include "../../include/common/crc32.h"
 
 const uint8_t PNG_SIGNATURE[8] = {137, 80, 78, 71, 13, 10, 26, 10};
 
@@ -381,4 +385,103 @@ StatusCode png_extract_message(PNGImage *image, char **message_out) {
     }
 
     return STATUS_INVALID_FORMAT;
+}
+
+static void write_chunk(FILE *fp, const char *type, const uint8_t *data, uint32_t length) {
+    uint8_t len_buf[4] = {
+        (length >> 24) & 0xFF,
+        (length >> 16) & 0xFF,
+        (length >> 8) & 0xFF,
+        length & 0xFF
+    };
+    fwrite(len_buf, 1, 4, fp);
+    fwrite(type, 1, 4, fp);
+    if (length > 0 && data) {
+        fwrite(data, 1, length, fp);
+    }
+
+    uint32_t crc = crc32(0, (const uint8_t *)type, 4);
+    if (length > 0 && data) {
+        crc = crc32(crc, data, length);
+    }
+
+    uint8_t crc_buf[4] = {
+        (crc >> 24) & 0xFF,
+        (crc >> 16) & 0xFF,
+        (crc >> 8) & 0xFF,
+        crc & 0xFF
+    };
+    fwrite(crc_buf, 1, 4, fp);
+}
+
+StatusCode save_png_image(const char *path, PNGImage *image) {
+    if (!path || !image) return STATUS_NULL_POINTER;
+
+    FILE *fp = fopen(path, "wb");
+    if (!fp) return STATUS_FILE_NOT_FOUND;
+
+    fwrite(PNG_SIGNATURE, 1, 8, fp);
+
+    uint8_t ihdr[13];
+    ihdr[0] = (image->width >> 24) & 0xFF;
+    ihdr[1] = (image->width >> 16) & 0xFF;
+    ihdr[2] = (image->width >> 8) & 0xFF;
+    ihdr[3] = image->width & 0xFF;
+    ihdr[4] = (image->height >> 24) & 0xFF;
+    ihdr[5] = (image->height >> 16) & 0xFF;
+    ihdr[6] = (image->height >> 8) & 0xFF;
+    ihdr[7] = image->height & 0xFF;
+    ihdr[8] = 8; 
+    ihdr[9] = 2; 
+    ihdr[10] = 0; 
+    ihdr[11] = 0;
+    ihdr[12] = 0; 
+    write_chunk(fp, "IHDR", ihdr, 13);
+
+    int width = image->width;
+    int height = image->height;
+    size_t stride = 1 + 3 * width;
+    size_t raw_size = stride * height;
+
+    uint8_t *raw = malloc(raw_size);
+    if (!raw) {
+        fclose(fp);
+        return STATUS_OUT_OF_MEMORY;
+    }
+
+    for (int y = 0; y < height; y++) {
+        size_t row_start = y * stride;
+        raw[row_start] = 0; // filter type 0 (None)
+        for (int x = 0; x < width; x++) {
+            raw[row_start + 1 + x * 3 + 0] = image->red[y][x];
+            raw[row_start + 1 + x * 3 + 1] = image->green[y][x];
+            raw[row_start + 1 + x * 3 + 2] = image->blue[y][x];
+        }
+    }
+
+    BitWriter bw;
+    bitwriter_init(&bw, 1024);
+
+    bitwriter_write_bits(&bw, 1, 1); 
+    bitwriter_write_bits(&bw, 1, 2); 
+
+    StatusCode code = compress_huffman_fixed(raw, raw_size, &bw);
+    if (code != STATUS_OK) {
+        bitwriter_free(&bw);
+        free(raw);
+        fclose(fp);
+        return code;
+    }
+
+    bitwriter_align_to_byte(&bw);
+    size_t compressed_len;
+    uint8_t *compressed_data = bitwriter_get_data(&bw, &compressed_len);
+
+    write_chunk(fp, "IDAT", compressed_data, compressed_len);
+    write_chunk(fp, "IEND", NULL, 0);
+
+    bitwriter_free(&bw);
+    free(raw);
+    fclose(fp);
+    return STATUS_OK;
 }
