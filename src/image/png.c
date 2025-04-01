@@ -285,3 +285,41 @@ void free_png_image(PNGImage *image) {
     free(image->green);
     free(image->blue);
 }
+
+StatusCode png_embed_message(PNGImage *image, const uint8_t *msg, size_t msg_len) {
+    if (!image || !msg) return STATUS_NULL_POINTER;
+
+    size_t total_bits = 32 + msg_len * 8;
+    size_t capacity = image->width * image->height * 3;
+
+    if (total_bits > capacity)
+        return STATUS_MESSAGE_TOO_LARGE; 
+
+    size_t bit_index = 0;
+
+    for (int y = 0; y < image->height; y++) {
+        for (int x = 0; x < image->width; x++) {
+            for (int c = 0; c < 3; c++) {
+                uint8_t *channel = (c == 0) ? &image->red[y][x] :
+                                   (c == 1) ? &image->green[y][x] :
+                                             &image->blue[y][x];
+
+                if (bit_index < 32) {
+                    uint32_t len = (uint32_t)msg_len;
+                    int bit = (len >> (31 - bit_index)) & 1;
+                    *channel = (*channel & ~1) | bit;
+                } else if (bit_index < total_bits) {
+                    size_t msg_bit = bit_index - 32;
+                    int bit = (msg[msg_bit / 8] >> (7 - (msg_bit % 8))) & 1;
+                    *channel = (*channel & ~1) | bit;
+                }
+
+                bit_index++;
+                if (bit_index >= total_bits)
+                    return STATUS_OK;
+            }
+        }
+    }
+
+    return STATUS_OK;
+}
