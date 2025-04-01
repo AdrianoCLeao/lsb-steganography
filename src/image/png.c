@@ -215,15 +215,47 @@ StatusCode load_png_image(const char *filepath, PNGImage *image) {
         size_t row_start = y * stride;
         uint8_t filter_type = decompressed[row_start];
 
+        uint8_t *row = &decompressed[row_start + 1];
+        uint8_t *prev_row = y > 0 ? &decompressed[(y - 1) * stride + 1] : NULL;
+
         switch (filter_type) {
-            case 0: break; 
-            case 1: 
-            case 2: 
-            case 3: 
-            case 4:
-                fprintf(stderr, "PNG filter type %d not implemented.\n", filter_type);
-                free(decompressed);
-                return STATUS_NOT_IMPLEMENTED;
+            case 0:
+                break;
+            case 1: // Sub
+                for (size_t i = 3; i < width * 3; i++)
+                    row[i] = (row[i] + row[i - 3]) & 0xFF;
+                break;
+            case 2: // Up
+                if (prev_row)
+                    for (size_t i = 0; i < width * 3; i++)
+                        row[i] = (row[i] + prev_row[i]) & 0xFF;
+                break;
+            case 3: // Average
+                for (size_t i = 0; i < width * 3; i++) {
+                    uint8_t left = (i >= 3) ? row[i - 3] : 0;
+                    uint8_t up = prev_row ? prev_row[i] : 0;
+                    row[i] = (row[i] + ((left + up) / 2)) & 0xFF;
+                }
+                break;
+            case 4: // Paeth
+                for (size_t i = 0; i < width * 3; i++) {
+                    uint8_t a = (i >= 3) ? row[i - 3] : 0;
+                    uint8_t b = prev_row ? prev_row[i] : 0;
+                    uint8_t c = (prev_row && i >= 3) ? prev_row[i - 3] : 0;
+
+                    int p = a + b - c;
+                    int pa = abs(p - a);
+                    int pb = abs(p - b);
+                    int pc = abs(p - c);
+
+                    uint8_t pr;
+                    if (pa <= pb && pa <= pc) pr = a;
+                    else if (pb <= pc) pr = b;
+                    else pr = c;
+
+                    row[i] = (row[i] + pr) & 0xFF;
+                }
+                break;
             default:
                 fprintf(stderr, "Invalid filter type: %d\n", filter_type);
                 free(decompressed);
