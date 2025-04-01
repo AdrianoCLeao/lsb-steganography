@@ -323,3 +323,63 @@ StatusCode png_embed_message(PNGImage *image, const uint8_t *msg, size_t msg_len
 
     return STATUS_OK;
 }
+
+StatusCode png_extract_message(PNGImage *image, char **message_out) {
+    if (!image || !message_out) return STATUS_NULL_POINTER;
+
+    int width = image->width;
+    int height = image->height;
+    int total_pixels = width * height;
+
+    int bit_index = 0;
+    uint8_t byte = 0;
+    int msg_len = 0;
+    int reading_len = 1;
+    int len_bytes_collected = 0;
+
+    uint8_t *msg_data = NULL;
+    int msg_capacity = 0;
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            for (int c = 0; c < 3; c++) {
+                uint8_t color = c == 0 ? image->red[y][x]
+                                : c == 1 ? image->green[y][x]
+                                         : image->blue[y][x];
+
+                byte = (byte << 1) | (color & 1);
+                bit_index++;
+
+                if (bit_index == 8) {
+                    if (reading_len) {
+                        msg_len = (msg_len << 8) | byte;
+                        len_bytes_collected++;
+                        if (len_bytes_collected == 4) {
+                            msg_capacity = msg_len + 1;
+                            msg_data = malloc(msg_capacity);
+                            if (!msg_data) return STATUS_OUT_OF_MEMORY;
+                            reading_len = 0;
+                            bit_index = 0;
+                            byte = 0;
+                        }
+                    } else {
+                        static int msg_pos = 0;
+                        if (msg_pos < msg_len) {
+                            msg_data[msg_pos++] = byte;
+                            byte = 0;
+                            bit_index = 0;
+                        } else {
+                            msg_data[msg_pos] = '\0';
+                            *message_out = (char *)msg_data;
+                            return STATUS_OK;
+                        }
+                    }
+                    bit_index = 0;
+                    byte = 0;
+                }
+            }
+        }
+    }
+
+    return STATUS_INVALID_FORMAT;
+}
