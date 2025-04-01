@@ -387,31 +387,29 @@ StatusCode png_extract_message(PNGImage *image, char **message_out) {
     return STATUS_INVALID_FORMAT;
 }
 
-static void write_chunk(FILE *fp, const char *type, const uint8_t *data, uint32_t length) {
-    uint8_t len_buf[4] = {
-        (length >> 24) & 0xFF,
-        (length >> 16) & 0xFF,
-        (length >> 8) & 0xFF,
-        length & 0xFF
-    };
-    fwrite(len_buf, 1, 4, fp);
+static void write_chunk(FILE *fp, const char *type, const uint8_t *data, size_t length) {
+    uint8_t header[4];
+    header[0] = (length >> 24) & 0xFF;
+    header[1] = (length >> 16) & 0xFF;
+    header[2] = (length >> 8) & 0xFF;
+    header[3] = length & 0xFF;
+    fwrite(header, 1, 4, fp);
+
     fwrite(type, 1, 4, fp);
-    if (length > 0 && data) {
+    if (data && length > 0)
         fwrite(data, 1, length, fp);
-    }
 
     uint32_t crc = crc32(0, (const uint8_t *)type, 4);
-    if (length > 0 && data) {
+    if (data && length > 0)
         crc = crc32(crc, data, length);
-    }
 
-    uint8_t crc_buf[4] = {
+    uint8_t crc_bytes[4] = {
         (crc >> 24) & 0xFF,
         (crc >> 16) & 0xFF,
         (crc >> 8) & 0xFF,
         crc & 0xFF
     };
-    fwrite(crc_buf, 1, 4, fp);
+    fwrite(crc_bytes, 1, 4, fp);
 }
 
 StatusCode save_png_image(const char *path, PNGImage *image) {
@@ -434,7 +432,7 @@ StatusCode save_png_image(const char *path, PNGImage *image) {
     ihdr[8] = 8; 
     ihdr[9] = 2; 
     ihdr[10] = 0; 
-    ihdr[11] = 0;
+    ihdr[11] = 0; 
     ihdr[12] = 0; 
     write_chunk(fp, "IHDR", ihdr, 13);
 
@@ -451,7 +449,7 @@ StatusCode save_png_image(const char *path, PNGImage *image) {
 
     for (int y = 0; y < height; y++) {
         size_t row_start = y * stride;
-        raw[row_start] = 0; // filter type 0 (None)
+        raw[row_start] = 0; 
         for (int x = 0; x < width; x++) {
             raw[row_start + 1 + x * 3 + 0] = image->red[y][x];
             raw[row_start + 1 + x * 3 + 1] = image->green[y][x];
@@ -462,10 +460,7 @@ StatusCode save_png_image(const char *path, PNGImage *image) {
     BitWriter bw;
     bitwriter_init(&bw, 1024);
 
-    bitwriter_write_bits(&bw, 1, 1); 
-    bitwriter_write_bits(&bw, 1, 2); 
-
-    StatusCode code = compress_huffman_fixed(raw, raw_size, &bw);
+    StatusCode code = compress_huffman_block(raw, raw_size, &bw);
     if (code != STATUS_OK) {
         bitwriter_free(&bw);
         free(raw);
@@ -473,11 +468,10 @@ StatusCode save_png_image(const char *path, PNGImage *image) {
         return code;
     }
 
-    bitwriter_align_to_byte(&bw);
     size_t compressed_len;
     uint8_t *compressed_data = bitwriter_get_data(&bw, &compressed_len);
-
     write_chunk(fp, "IDAT", compressed_data, compressed_len);
+
     write_chunk(fp, "IEND", NULL, 0);
 
     bitwriter_free(&bw);
