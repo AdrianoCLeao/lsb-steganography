@@ -64,11 +64,18 @@ int main() {
 
     printf("Imagem salva com sucesso em '%s'.\n", output_image);
 
-    char *extracted = NULL;
-    code = png_extract_message(&image, &extracted);
+    PNGImage output_image_data;
+    code = load_png_image(output_image, &output_image_data);
     if (code != STATUS_OK) {
         print_error(code);
-        free_png_image(&image);
+        return 1;
+    }
+
+    char *extracted = NULL;
+    code = png_extract_message(&output_image_data, &extracted);
+    if (code != STATUS_OK) {
+        print_error(code);
+        free_png_image(&output_image_data);
         return 1;
     }
 
