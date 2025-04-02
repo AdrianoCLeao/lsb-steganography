@@ -332,7 +332,7 @@ StatusCode inflate_dynamic_huffman(BitStream *bs, uint8_t **buffer, size_t *size
                 *capacity = new_cap;
             }
 
-            printf("[inflate_dynamic_huffman] size atual = %zu, distance = %d\n", *size, distance);
+            // printf("[inflate_dynamic_huffman] size atual = %zu, distance = %d\n", *size, distance);
             for (int j = 0; j < length; j++) {
                 (*buffer)[*size] = (*buffer)[*size - distance];
                 (*size)++;

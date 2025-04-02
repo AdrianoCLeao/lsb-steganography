@@ -13,6 +13,11 @@ typedef struct {
     int length;
 } HuffmanCode;
 
+typedef struct {
+    int symbol;
+    int count;
+} RunLength;
+
 StatusCode compress_huffman_fixed(const uint8_t *input, size_t input_len, BitWriter *bw);
 StatusCode compress_huffman_dynamic(const uint8_t *input, size_t input_len, BitWriter *bw);
 StatusCode compress_huffman_block(const uint8_t *input, size_t input_len, BitWriter *bw);

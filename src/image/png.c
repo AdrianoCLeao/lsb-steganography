@@ -114,7 +114,7 @@ StatusCode parse_png_chunks(
         fread(data, 1, length, fp);
         fseek(fp, 4, SEEK_CUR);
 
-        printf("  Chunk: %s | Length: %u bytes\n", type, length);
+        // printf("  Chunk: %s | Length: %u bytes\n", type, length);
 
         if (strcmp(type, "IHDR") == 0) {
             *width      = (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | data[3];
@@ -170,12 +170,12 @@ StatusCode load_png_image(const char *filepath, PNGImage *image) {
     );
     if (code != STATUS_OK) return code;
 
-    printf("\nPNG metadata:\n");
+    /* printf("\nPNG metadata:\n");
     printf("  Width: %d\n", width);
     printf("  Height: %d\n", height);
     printf("  Bit depth: %d\n", bit_depth);
     printf("  Color type: %d\n", color_type);
-    printf("  IDAT size: %zu bytes\n", idat_size);
+    printf("  IDAT size: %zu bytes\n", idat_size); */
 
     uint8_t *decompressed = NULL;
     size_t decompressed_len = 0;
