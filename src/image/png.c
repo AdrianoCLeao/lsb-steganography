@@ -470,9 +470,17 @@ StatusCode save_png_image(const char *path, PNGImage *image) {
 
     size_t compressed_len;
     uint8_t *compressed_data = bitwriter_get_data(&bw, &compressed_len);
-    write_chunk(fp, "IDAT", compressed_data, compressed_len);
 
+    printf("[debug] Últimos bytes:\n");
+    for (size_t i = (compressed_len > 16 ? compressed_len - 16 : 0); i < compressed_len; i++) {
+        printf(" 0x%02X", compressed_data[i]);
+    }
+    printf("\n[debug] Tamanho total escrito: %zu bytes\n", compressed_len);
+
+    write_chunk(fp, "IDAT", compressed_data, compressed_len);
     write_chunk(fp, "IEND", NULL, 0);
+
+    printf("[final] Total de bytes: %zu\n", compressed_len);
 
     bitwriter_free(&bw);
     free(raw);

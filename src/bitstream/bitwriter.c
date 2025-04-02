@@ -1,9 +1,11 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include "../include/bitstream/bitwriter.h"
 
 void bitwriter_init(BitWriter *bw, size_t initial_capacity) {
     bw->buffer = malloc(initial_capacity);
+    memset(bw->buffer, 0, initial_capacity);
     bw->capacity = initial_capacity;
     bw->size = 0;
     bw->bit_buffer = 0;
@@ -50,7 +52,6 @@ void bitwriter_align_to_byte(BitWriter *bw) {
 }
 
 uint8_t* bitwriter_get_data(BitWriter *bw, size_t *out_size) {
-    bitwriter_align_to_byte(bw);
     *out_size = bw->size;
     return bw->buffer;
 }

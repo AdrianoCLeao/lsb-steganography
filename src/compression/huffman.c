@@ -60,15 +60,15 @@ StatusCode compress_huffman_fixed(const uint8_t *input, size_t input_len, BitWri
         dist_codes[i].length = 5;
     }
 
-    bitwriter_write_bits(bw, 1, 1);  
-    bitwriter_write_bits(bw, 1, 2); 
-
     for (size_t i = 0; i < input_len; i++) {
         int sym = input[i];
         bitwriter_write_bits(bw, codes[sym].code, codes[sym].length);
     }
 
+    printf("[compress_huffman_fixed] bytes até aqui: %zu\n", bw->size);
     bitwriter_write_bits(bw, codes[256].code, codes[256].length); 
+    bitwriter_align_to_byte(bw);
+    printf("[debug] bit_count final: %d\n", bw->bit_count);
 
     return STATUS_OK;
 }
@@ -81,6 +81,8 @@ StatusCode compress_huffman_dynamic(const uint8_t *input, size_t input_len, BitW
     for (int i = 0; i < 288; i++) litlen_lengths[i] = (litlen_freq[i] > 0) ? 8 : 0;
     for (int i = 0; i < 32; i++) dist_lengths[i] = (dist_freq[i] > 0) ? 5 : 0;
 
+    dist_lengths[0] = 5;
+
     HuffmanTree litlen_tree, dist_tree;
     if (build_huffman_tree(litlen_lengths, 288, &litlen_tree) != STATUS_OK) return STATUS_INVALID_FORMAT;
     if (build_huffman_tree(dist_lengths, 32, &dist_tree) != STATUS_OK) {
@@ -91,9 +93,6 @@ StatusCode compress_huffman_dynamic(const uint8_t *input, size_t input_len, BitW
     HuffmanCode litlen_codes[288], dist_codes[32];
     generate_huffman_codes(&litlen_tree, litlen_codes, 288);
     generate_huffman_codes(&dist_tree, dist_codes, 32);
-
-    bitwriter_write_bits(bw, 1, 1); 
-    bitwriter_write_bits(bw, 2, 2); 
 
     bitwriter_write_bits(bw, 257 - 257, 5); 
     bitwriter_write_bits(bw, 1 - 1, 5);     
@@ -108,6 +107,9 @@ StatusCode compress_huffman_dynamic(const uint8_t *input, size_t input_len, BitW
     for (size_t i = 0; i < input_len; i++) {
         bitwriter_write_bits(bw, litlen_codes[input[i]].code, litlen_codes[input[i]].length);
     }
+
+    printf("[compress_huffman_dynamic] writing END_OF_BLOCK (256): code=0x%X, len=%d\n",
+    litlen_codes[256].code, litlen_codes[256].length);
 
     bitwriter_write_bits(bw, litlen_codes[256].code, litlen_codes[256].length);
 
@@ -128,9 +130,19 @@ StatusCode compress_huffman_block(const uint8_t *input, size_t input_len, BitWri
     }
     if (freq[256] == 0) unique++;
 
+    bitwriter_write_bits(bw, 0x78, 8);
+    bitwriter_write_bits(bw, 0x9C, 8);
+    printf("[compress_huffman_block] cabeçalho ZLIB inserido: CMF=0x78, FLG=0x9C\n");
+
+    bitwriter_write_bits(bw, 1, 1); 
+
     if (unique > 128) {
+        printf("[compress_huffman_block] usando Huffman dinâmico\n");
+        bitwriter_write_bits(bw, 0b10, 2); 
         return compress_huffman_dynamic(input, input_len, bw);
     } else {
+        printf("[compress_huffman_block] usando Huffman fixo\n");
+        bitwriter_write_bits(bw, 0b01, 2); 
         return compress_huffman_fixed(input, input_len, bw);
     }
 }
