@@ -1,87 +1,58 @@
+#include "../include/image/jpeg.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "../include/image/image.h"
-#include "../include/image/png.h"
-#include "../include/common/utils.h"
+static int read_text_file(const char *path, uint8_t **out_buf, size_t *out_len) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return -2; }
+    long len = ftell(f);
+    if (len < 0)        { fclose(f); return -3; }
+    rewind(f);
+    *out_buf = malloc((size_t)len);
+    if (!*out_buf)      { fclose(f); return -4; }
+    if (fread(*out_buf, 1, (size_t)len, f) != (size_t)len) {
+        free(*out_buf);
+        fclose(f);
+        return -5;
+    }
+    fclose(f);
+    *out_len = (size_t)len;
+    return 0;
+}
 
-int main() {
-    PNGImage image;
-    StatusCode code;
+int main(void) {
+    const char *in_jpeg   = "assets/lena.jpg";
+    const char *out_jpeg  = "assets/lena_stego.jpg";
+    const char *msg_path  = "assets/messages/message.txt";
 
-    const char *input_image = "assets/test.png";
-    const char *output_image = "assets/test-output.png";
-    const char *message_path = "assets/messages/message.txt";
-
-    code = load_png_image(input_image, &image);
-    if (code != STATUS_OK) {
-        print_error(code);
+    uint8_t *message = NULL;
+    size_t  msg_len  = 0;
+    if (read_text_file(msg_path, &message, &msg_len) != 0) {
+        fprintf(stderr, "Erro ao ler mensagem de '%s'\n", msg_path);
         return 1;
     }
 
-    printf("Metadados da imagem carregados com sucesso.\n");
+    if (embed_message_jpeg_no_lib(in_jpeg, out_jpeg, message, msg_len) != 0) {
+        fprintf(stderr, "Erro ao embutir mensagem em '%s'\n", out_jpeg);
+        free(message);
+        return 1;
+    }
+    printf("Mensagem embutida em '%s' (%zu bytes).\n", out_jpeg, msg_len);
 
-    FILE *msg_fp = fopen(message_path, "rb");
-    if (!msg_fp) {
-        perror("Erro ao abrir arquivo de mensagem");
-        free_png_image(&image);
+    free(message);
+
+    uint8_t *extracted = NULL;
+    size_t  ex_len     = 0;
+    if (extract_message_jpeg_no_lib(out_jpeg, &extracted, &ex_len) != 0) {
+        fprintf(stderr, "Erro ao extrair mensagem de '%s'\n", out_jpeg);
         return 1;
     }
 
-    fseek(msg_fp, 0, SEEK_END);
-    long msg_len = ftell(msg_fp);
-    fseek(msg_fp, 0, SEEK_SET);
-
-    if (msg_len <= 0) {
-        fprintf(stderr, "Arquivo de mensagem vazio ou invalido.\n");
-        fclose(msg_fp);
-        free_png_image(&image);
-        return 1;
-    }
-
-    uint8_t *msg = malloc(msg_len);
-    fread(msg, 1, msg_len, msg_fp);
-    fclose(msg_fp);
-
-    code = png_embed_message(&image, msg, msg_len);
-    free(msg);
-
-    if (code != STATUS_OK) {
-        print_error(code);
-        free_png_image(&image);
-        return 1;
-    }
-
-    printf("Mensagem embutida com sucesso na imagem!\n");
-
-    code = save_png_image(output_image, &image);
-    if (code != STATUS_OK) {
-        print_error(code);
-        free_png_image(&image);
-        return 1;
-    }
-
-    printf("Imagem salva com sucesso em '%s'.\n", output_image);
-
-    PNGImage output_image_data;
-    code = load_png_image(output_image, &output_image_data);
-    if (code != STATUS_OK) {
-        print_error(code);
-        return 1;
-    }
-
-    char *extracted = NULL;
-    code = png_extract_message(&output_image_data, &extracted);
-    if (code != STATUS_OK) {
-        print_error(code);
-        free_png_image(&output_image_data);
-        return 1;
-    }
-
-    printf("Mensagem extraída:\n%s\n", extracted);
+    printf("Mensagem extraída (%zu bytes):\n%.*s\n",
+           ex_len, (int)ex_len, extracted);
     free(extracted);
 
-    free_png_image(&image);
     return 0;
 }
