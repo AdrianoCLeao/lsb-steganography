@@ -67,10 +67,14 @@ static StatusCode read_message_interactive(uint8_t **buffer, size_t *len) {
                 printf("Erro ao abrir pasta de mensagens.\n");
                 return STATUS_IO_ERROR;
             }
+
             struct dirent *entry;
+            char *filenames[100];
             int count = 0;
-            while ((entry = readdir(dir)) != NULL) {
+
+            while ((entry = readdir(dir)) != NULL && count < 100) {
                 if (entry->d_type == DT_REG) {
+                    filenames[count] = strdup(entry->d_name);
                     printf("[%d] %s\n", count + 1, entry->d_name);
                     count++;
                 }
@@ -82,13 +86,21 @@ static StatusCode read_message_interactive(uint8_t **buffer, size_t *len) {
                 return STATUS_FILE_NOT_FOUND;
             }
 
-            printf("Digite o nome do arquivo da mensagem: ");
-            char filename[MAX_PATH];
-            fgets(filename, MAX_PATH, stdin);
-            trim(filename);
+            int selection = 0;
+            printf("Digite o número da mensagem desejada (0 para voltar): ");
+            scanf("%d", &selection);
+            clear_input_buffer();
+
+            if (selection <= 0 || selection > count) {
+                for (int i = 0; i < count; i++) free(filenames[i]);
+                return STATUS_ERROR;
+            }
 
             char fullpath[MAX_PATH];
-            snprintf(fullpath, MAX_PATH, "assets/messages/%s", filename);
+            snprintf(fullpath, MAX_PATH, "assets/messages/%s", filenames[selection - 1]);
+
+            for (int i = 0; i < count; i++) free(filenames[i]);
+
             return read_text_file(fullpath, buffer, len);
         }
 
@@ -116,14 +128,15 @@ static StatusCode read_message_interactive(uint8_t **buffer, size_t *len) {
     }
 }
 
-StatusCode interactive_menu(void) {
+static StatusCode embed_menu(void) {
+    StatusCode code;
     while (1) {
         int escolha;
         clear_screen();
         printf("Deseja esteganografar uma imagem já existente nos assets?\n");
-        printf("1. Sim (usar 'assets/lena.jpg')\n");
+        printf("1. Sim (usar 'assets/jpg/lena.jpg')\n");
         printf("2. Não (fornecer caminho manualmente)\n");
-        printf("0. Sair\n");
+        printf("0. Voltar\n");
         printf("Escolha: ");
         scanf("%d", &escolha);
         clear_input_buffer();
@@ -133,7 +146,7 @@ StatusCode interactive_menu(void) {
 
         char image_path[MAX_PATH];
         if (escolha == 1) {
-            strncpy(image_path, "assets/jpg/lena.jpg", MAX_PATH);
+            strncpy(image_path, "./assets/jpg/lena.jpg", MAX_PATH);
         } else if (escolha == 2) {
             printf("Insira o caminho da imagem a ser esteganografada:\n");
             fgets(image_path, MAX_PATH, stdin);
@@ -152,7 +165,11 @@ StatusCode interactive_menu(void) {
 
         uint8_t *message = NULL;
         size_t msg_len = 0;
-        if (read_message_interactive(&message, &msg_len) != STATUS_OK) {
+
+        code = read_message_interactive(&message, &msg_len);
+
+        if (code != STATUS_OK) {
+            print_error(code);
             pause();
             continue;
         }
@@ -165,6 +182,7 @@ StatusCode interactive_menu(void) {
         StatusCode code;
         if (is_jpg(image_path)) {
             code = embed_message_jpeg_no_lib(image_path, output_path, message, msg_len);
+            
         } else if (is_bmp(image_path)) {
             RGBImage image;
             code = load_bmp_image(image_path, &image);
@@ -180,6 +198,99 @@ StatusCode interactive_menu(void) {
         print_error(code);
         free(message);
         pause();
+    }
+}
+
+static StatusCode extract_menu(void) {
+    while (1) {
+        int opt;
+        clear_screen();
+        printf("Deseja extrair a mensagem de qual imagem?\n");
+        printf("1. Usar imagem padrão (assets/lena_stego.jpg)\n");
+        printf("2. Fornecer caminho da imagem\n");
+        printf("0. Voltar\n");
+        printf("Escolha: ");
+        scanf("%d", &opt);
+        clear_input_buffer();
+        clear_screen();
+
+        if (opt == 0) return STATUS_OK;
+
+        char image_path[MAX_PATH];
+        if (opt == 1) {
+            strncpy(image_path, "assets/lena_stego.jpg", MAX_PATH);
+        } else if (opt == 2) {
+            printf("Insira o caminho da imagem a ser lida:\n");
+            fgets(image_path, MAX_PATH, stdin);
+            trim(image_path);
+        } else {
+            printf("Opção inválida.\n");
+            pause();
+            continue;
+        }
+
+        if (!is_jpg(image_path) && !is_bmp(image_path)) {
+            printf("Formato de imagem não suportado. Use apenas .jpg/.jpeg ou .bmp.\n");
+            pause();
+            continue;
+        }
+
+        StatusCode code;
+        if (is_jpg(image_path)) {
+            uint8_t *extracted = NULL;
+            size_t ex_len = 0;
+            code = extract_message_jpeg_no_lib(image_path, &extracted, &ex_len);
+            if (code == STATUS_OK) {
+                printf("Mensagem extraída (%zu bytes):\n%.*s\n", ex_len, (int)ex_len, extracted);
+                free(extracted);
+            } else {
+                print_error(code);
+            }
+        } else if (is_bmp(image_path)) {
+            RGBImage image;
+            code = load_bmp_image(image_path, &image);
+            if (code != STATUS_OK) {
+                print_error(code);
+                pause();
+                continue;
+            }
+
+            uint8_t *extracted = NULL;
+            size_t ex_len = 0;
+            code = extract_message(&image, &extracted, &ex_len);
+            if (code == STATUS_OK) {
+                printf("Mensagem extraída (%zu bytes):\n%s\n", ex_len, extracted);
+                free(extracted);
+            } else {
+                print_error(code);
+            }
+
+            free_rgb_image(&image);
+        }
+
+        pause();
+    }
+}
+
+StatusCode interactive_menu(void) {
+    while (1) {
+        int escolha;
+        clear_screen();
+        printf("===== MENU PRINCIPAL =====\n");
+        printf("1. Esteganografar uma imagem\n");
+        printf("2. Extrair mensagem de uma imagem\n");
+        printf("0. Sair\n");
+        printf("Escolha: ");
+        scanf("%d", &escolha);
+        clear_input_buffer();
+
+        if (escolha == 0) return STATUS_OK;
+        else if (escolha == 1) embed_menu();
+        else if (escolha == 2) extract_menu();
+        else {
+            printf("Opção inválida.\n");
+            pause();
+        }
     }
 
     return STATUS_OK;
