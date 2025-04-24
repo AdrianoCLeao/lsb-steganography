@@ -3,25 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-static int read_text_file(const char *path, uint8_t **out_buf, size_t *out_len) {
-    FILE *f = fopen(path, "rb");
-    if (!f) return -1;
-    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return -2; }
-    long len = ftell(f);
-    if (len < 0)        { fclose(f); return -3; }
-    rewind(f);
-    *out_buf = malloc((size_t)len);
-    if (!*out_buf)      { fclose(f); return -4; }
-    if (fread(*out_buf, 1, (size_t)len, f) != (size_t)len) {
-        free(*out_buf);
-        fclose(f);
-        return -5;
-    }
-    fclose(f);
-    *out_len = (size_t)len;
-    return 0;
-}
-
 int main(void) {
     const char *in_jpeg   = "assets/lena.jpg";
     const char *out_jpeg  = "assets/lena_stego.jpg";

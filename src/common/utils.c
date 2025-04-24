@@ -1,5 +1,7 @@
 #include <stdio.h>
+
 #include "../../include/common/common.h"
+#include "../../include/common/utils.h"
 
 void print_error(StatusCode code) {
     switch (code) {
@@ -36,4 +38,23 @@ void print_error(StatusCode code) {
         default:
             printf("Codigo de erro desconhecido: %d\n", code);
     }
+}
+
+int read_text_file(const char *path, uint8_t **out_buf, size_t *out_len) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+    if (fseek(f, 0, SEEK_END) != 0) { fclose(f); return -2; }
+    long len = ftell(f);
+    if (len < 0)        { fclose(f); return -3; }
+    rewind(f);
+    *out_buf = malloc((size_t)len);
+    if (!*out_buf)      { fclose(f); return -4; }
+    if (fread(*out_buf, 1, (size_t)len, f) != (size_t)len) {
+        free(*out_buf);
+        fclose(f);
+        return -5;
+    }
+    fclose(f);
+    *out_len = (size_t)len;
+    return 0;
 }
