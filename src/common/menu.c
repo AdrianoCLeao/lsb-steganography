@@ -175,9 +175,40 @@ static StatusCode embed_menu(void) {
         }
 
         char output_path[MAX_PATH];
-        printf("Insira o caminho de saída para salvar a imagem esteganografada:\n");
-        fgets(output_path, MAX_PATH, stdin);
-        trim(output_path);
+        int saida_opcao;
+
+        printf("Como deseja definir o caminho da imagem de saída?\n");
+        printf("1. Salvar na mesma pasta da original (com sufixo '_stego')\n");
+        printf("2. Digitar manualmente o caminho de saída\n");
+        printf("Escolha: ");
+        scanf("%d", &saida_opcao);
+        clear_input_buffer();
+
+        if (saida_opcao == 1) {
+            const char *ext = is_jpg(image_path) ? "jpg" : "bmp";
+            const char *folder = is_jpg(image_path) ? "jpg" : "bmp";
+
+            const char *filename = strrchr(image_path, '/');
+            filename = filename ? filename + 1 : image_path;
+
+            const char *dot = strrchr(filename, '.');
+            size_t name_len = dot ? (size_t)(dot - filename) : strlen(filename);
+
+            char basename[MAX_PATH];
+            strncpy(basename, filename, name_len);
+            basename[name_len] = '\0';
+
+            snprintf(output_path, MAX_PATH, "assets/%s/%s_stego.%s", folder, basename, ext);
+        } else if (saida_opcao == 2) {
+            printf("Insira o caminho de saída para salvar a imagem esteganografada:\n");
+            fgets(output_path, MAX_PATH, stdin);
+            trim(output_path);
+        } else {
+            printf("Opção inválida. Retornando ao menu.\n");
+            free(message);
+            pause();
+            return STATUS_OK;
+        }
 
         StatusCode code;
         if (is_jpg(image_path)) {
