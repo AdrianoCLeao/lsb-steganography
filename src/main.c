@@ -7,7 +7,7 @@
 int main(void) {
     const char *in_jpeg   = "assets/jpg/lena.jpg";
     const char *out_jpeg  = "assets/jpg/lena_stego.jpg";
-    const char *msg_path  = "assets/messages/message.txt";
+    const char *msg_path  = "assets/messages/faroeste_caboclo.txt";
 
     uint8_t *message = NULL;
     size_t  msg_len  = 0;
